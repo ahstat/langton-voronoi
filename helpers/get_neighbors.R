@@ -1,69 +1,165 @@
-# This file to get the neighbors from dirsgs component of deldir()
+#########################################################
+# Helper function: Restrict dirsgs to edges of interest #
+#########################################################
+# From a deldir object tess, we can access to edges with tess$dirsgs.
+# There are more edges than cells.
+# For an edge e, tess$dirsgs[e,c(ind1, ind2)] is the two indexes related
+# to the two cells sharing edge e.
+#
+# The following function restricts tess$dirsgs to rows/edges related with a
+# certain index 'index'.
+# Arguments:
+# - dirsgs: a data frame of edges obtained from tess$dirsgs,
+# - index: index of the cell of interest.
+dirsgs_restric_index = function(dirsgs, index) {
+  return(dirsgs[dirsgs$ind1 == index | dirsgs$ind2 == index,])
+}
 
 ##
-# Main function
+# Example
 ##
-# Get the index of the neighbors for a cell, and get the related center
-#  of the edges.
-# Also, output if this cell is at the bound (i.e. some neighbors are missing).
+N = 3
+z = simulation_square(N)
+m = 2
+space_out = 3
+tess = create_tiling(z, m, plot_points = FALSE, space_out)
+dirsgs = tess$dirsgs
+index = 37
+df_edge_of_interest = dirsgs_restric_index(dirsgs, index) 
+rm(N, z, m, space_out, tess, dirsgs, index, df_edge_of_interest)
+
+##############################################################
+# Helper function: Euclidian distance of each edge of dirsgs #
+##############################################################
+# Argument:
+# - dirsgs: a data frame of edges obtained from tess$dirsgs
+distance_of_edges = function(dirsgs) {
+  return((dirsgs$x1 - dirsgs$x2)^2 + (dirsgs$y1 - dirsgs$y2)^2)
+}
+
+##
+# Example
+##
+N = 3
+z = simulation_square(N)
+m = 2
+space_out = 3
+tess = create_tiling(z, m, plot_points = FALSE, space_out)
+dirsgs = tess$dirsgs
+index = 37
+dirsgs = dirsgs_restric_index(dirsgs, index) 
+dist_out = distance_of_edges(dirsgs) 
+rm(N, z, m, space_out, tess, dirsgs, index, dist_out)
+
+###################################################################
+# Helper function: Check if dirsgs contains cells at the boundary #
+###################################################################
+# Whether dirsgs contain some cells at the boundary
+# (in practice this function is applied on a subset of tell$dirsgs).
+is_boundary = function(dirsgs) {
+  # bp1 and bp2 are logical values indicating whether cell is in
+  # border position, according to dirsgs documentation
+  return(!all(!c(dirsgs$bp1, dirsgs$bp2)))
+}
+
+##
+# Unit tests
+##
+N = 3
+z = simulation_square(N)
+m = 2
+space_out = 3
+tess = create_tiling(z, m, plot_points = FALSE, space_out)
+dirsgs = tess$dirsgs
+# With all the cells, there are some edges at the boundary
+checkEquals(is_boundary(dirsgs), TRUE)
+index = 37
+dirsgs = dirsgs_restric_index(dirsgs, index)
+# index 37 is in the center of the tesselation, so the neighbors cells
+# are not the border.
+checkEquals(is_boundary(dirsgs), FALSE)
+rm(N, z, m, space_out, tess, dirsgs, index)
+
+################################################
+# Main function to compute neighbors of a cell #
+################################################
+# Given a tesselation and a current cell, compute edges of this cell and
+# for each edge, give:
+# * z_edge: the middle position of the edge,
+# * index: the cell obtained after crossing the edge from current cell
+# Each edge is a row of an outputed data frame 
+# The function also outputs whether the current cell is located at the
+# border.
+#
+# Arguments:
+# - index: index of the current cell of interest.
+# - tess: an object of class deldir
 neighbors_func = function(index, tess) {
-  z_index_func(index, tess)
-  
   # Only take dirsgs
   dirsgs = tess$dirsgs
-  # Only take related to index
-  dirsgs_index = dirsgs_index_func(dirsgs, index)
-  # Only take related to index with an edge
-  dis = dirsgs_remove_vertex(dirsgs_index, index)
+  
+  # Remove unused columns
+  dirsgs = dirsgs[,-which(colnames(dirsgs) %in% c("thirdv1", "thirdv2"))]
+  
+  # Only take rows related to index
+  dirsgs = dirsgs_restric_index(dirsgs, index)
+  
+  # Some cells c1 and c2 can be connected with an edge e which is
+  # simply a vertex: e = (v, v). We remove such rows from dirsgs.
+  dirsgs = dirsgs[which(distance_of_edges(dirsgs) > 0), ]
+  
+  # ind1 and ind2 merged by taking for each row the cell which is not 'index'
+  # After this operation, ind2 column is deleted, we only keep ind1.
+  idx_change = which(dirsgs$ind1 == index)
+  dirsgs$ind1[idx_change] = dirsgs$ind2[idx_change]
+  dirsgs = dirsgs[,-which(colnames(dirsgs) == "ind2")]
+  
+  # Get all neighbors cells (connected with an edge to 'index'),
+  # and get position of the mean of each edge
+  z_edge = (dirsgs$x1 + dirsgs$x2)/2 + 1i * (dirsgs$y1 + dirsgs$y2)/2
+  index = dirsgs$ind1
+  neighbors = data.frame(z_edge = z_edge, index = index)
   
   # Check if the index is a cell at the boundary
-  is_bound = is_boundary(dirsgs_index)
-  
-  # Get all neighbors cells (connected with an edge to index),
-  # and get the position of the mean of each edge
-  neighbors = data.frame(z_edge = (dis$x1 + dis$x2)/2 + 1i * (dis$y1 + dis$y2)/2,
-                         index = dis$ind1)
+  is_bound = is_boundary(dirsgs)
   
   return(list(neighbors = neighbors, is_bound = is_bound))
 }
 
 ##
-# Helper functions
+# Example
 ##
+N = 3
+z = simulation_square(N)
+m = 2
+space_out = 3
+tess = create_tiling(z, m, plot_points = FALSE, space_out)
 
-# Return the z of the current index
-z_index_func = function(index, tess) {
-  z_index = tess$summary[index,]
-  z_index = z_index$x + 1i * z_index$y
-  return(z_index)
-}
+## Example 1
+index = 37
+df = neighbors_func(index, tess)
+# $neighbors
+# z_edge index
+# 1 -0.8193230-0.0039675i    34
+# 2 -0.8133135+0.0991010i    35
+# 3 -0.7704980-0.2087525i    36
+# 4 -0.3133135+0.0991010i    38
+# 5 -0.2704980-0.2087525i    39
+# 6  0.1806770-0.0039675i    40
+# 
+# $is_bound
+# [1] FALSE
 
-# From dirsgs, take only element related with index
-dirsgs_index_func = function(dirsgs, index) {
-  return(dirsgs[dirsgs$ind1 == index | dirsgs$ind2 == index,])
-}
-
-# Check if the current index is the boundary of the map
-is_boundary = function(dirsgs_index) {
-  return(!all(!c(dirsgs_index$bp1, 
-                 dirsgs_index$bp2)))
-}
-
-# Euclidian distance of dirsgs elements
-distance = function(dis) {
-  return((dis$x1 - dis$x2)^2 + (dis$y1 - dis$y2)^2)
-}
-
-# Remove neighbors of index only connected by a vertex (and not an edge)
-dirsgs_remove_vertex = function(dirsgs_index, index) {
-  # dis = dirsgs_index_small
-  dis = dirsgs_index[,-which(colnames(dirsgs_index) %in% c("bp1", 
-                                                           "bp2", 
-                                                           "thirdv1", 
-                                                           "thirdv2"))]
-  dis = dis[which(distance(dis)>0),]
-  idx_change = which(dis$ind1 == index)
-  dis$ind1[idx_change] = dis$ind2[idx_change]
-  dis = dis[,-which(colnames(dis) == "ind2")]
-  return(dis)
-}
+## Example 2
+index_border = which.min(tess$dirsgs$bp1 == TRUE)
+df = neighbors_func(index_border, tess)
+# $neighbors
+# z_edge index
+# 1 -2.413826+1.751724i     3
+# 2 -4.163826+1.568980i    17
+# 3 -3.569323+2.156810i     2
+# 4 -1.819323+1.996033i     4
+# 
+# $is_bound
+# [1] TRUE
+rm(N, z, m, space_out, tess, index, index_border, df)
