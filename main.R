@@ -62,8 +62,6 @@ rm(m, z)
 ## Checking the edge length of the tesselation
 if(min(distance_of_edges(tess$dirsgs)) < 0.01) {
   warning("At least one edge is difficult to see with human eye")
-} else {
-  # print(seed)
 }
 
 #############################
@@ -117,9 +115,11 @@ size_png = 800
 when_plot = "each_iteration"
 
 ## Shape of the output (linked with function shape_output_file)
-output_shape = "outputs/N/seed_iteration.png"
+output_shape = "outputs/test/iter_iteration.png"
 # output_shape = "outputs/N/seed/iteration.png"
-output_folder = shape_output_file(output_shape, only_folder = TRUE)
+not_a_variable = c("outputs", "test", "iter", "png")
+output_folder = shape_output_file(output_shape, only_folder = TRUE,
+                                  not_a_variable = not_a_variable)
 folder_create(output_folder)
 rm(output_folder)
 # Note: It is better to reduce number of folders if when_plot="final_iteration"
@@ -138,4 +138,5 @@ plot(vp, border = "#555555")
 perform_walk(tess, vp,
              index_init, index_previous_init,
              rule, max_iterations,
-             modulo, colmax, size_png, when_plot, output_shape)
+             modulo, colmax, size_png, when_plot, 
+             output_shape, not_a_variable)

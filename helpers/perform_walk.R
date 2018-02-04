@@ -71,11 +71,13 @@ checkEquals(is_current_to_plot("final_iteration", 2, 5, TRUE), TRUE)
 # - colmax: maximum number of colors,
 # - size_png: dimension of height and width output,
 # - when_plot: whether we output plot at each iteration or for final iteration,
-# - output_shape: shape of directory where png files should be written.
+# - output_shape: shape of directory where png files should be written,
+# - not_a_variable: elements of output_shape which are not variables.
 perform_walk = function(tess, vp,
                         index_init, index_previous_init,
                         rule, max_iterations,
-                        modulo, colmax, size_png, when_plot, output_shape) {
+                        modulo, colmax, size_png, when_plot, 
+                        output_shape, not_a_variable) {
   ##
   # Global variables for the walk
   ##
@@ -162,7 +164,8 @@ perform_walk = function(tess, vp,
       if(is_plot) {
         # Output file for this iteration
         iteration <<- iteration
-        out_file = shape_output_file(output_shape)
+        out_file = shape_output_file(output_shape, 
+                                     not_a_variable = not_a_variable)
         dev_copy(out_file, size_png)
       }
     }
