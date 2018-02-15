@@ -44,6 +44,8 @@ is_current_to_plot = function(when_plot, iteration, max_iterations, stop) {
     } else {
       boolean = FALSE
     }
+  } else {
+    stop("is_current_to_plot has incorrect inputs")
   }
   return(boolean)
 }
@@ -76,7 +78,7 @@ checkEquals(is_current_to_plot("final_iteration", 2, 5, TRUE), TRUE)
 perform_walk = function(tess, vp,
                         index_init, index_previous_init,
                         rule, max_iterations,
-                        modulo, colmax, size_png, when_plot, 
+                        modulo, colfunc, colmax, size_png, when_plot, 
                         output_shape, not_a_variable) {
   ##
   # Global variables for the walk
@@ -95,7 +97,7 @@ perform_walk = function(tess, vp,
   ##
   for(iteration in 1:max_iterations) {
     if(!stop) {
-      print(iteration)
+      # print(iteration)
       ##
       # Current position, previous position, and previous moves in the
       # current position.
@@ -153,7 +155,7 @@ perform_walk = function(tess, vp,
         value = mod(nb_moves, modulo)
         
         # Update the graph on the R-session dev
-        plot_polygon(vp, index, value, colmax = colmax)
+        plot_polygon(vp, index, value, colfunc = colfunc, colmax = colmax)
       }
       
       ##

@@ -1,6 +1,6 @@
 ###################################################################
 # Langton-Voronoi : Langton's ant extended to Voronoi tesselation #
-# 2016/11/01 - 2018/02/04                                         #
+# 2016/11/01 - 2018/02/15                                         #
 ###################################################################
 # Classic Langton's ant is described in en.wikipedia.org/wiki/Langton's_ant
 #
@@ -59,8 +59,10 @@ rm(m, z)
 # [-m_left-0.5,m_right+0.5]x[-m_down-0.5,m_up+0.5]:
 # m = c(-2, 3, -1, 1) # m_left / m_right / m_down / m_up
 
-## Checking the edge length of the tesselation
-if(min(distance_of_edges(tess$dirsgs)) < 0.01) {
+## Checking the edge lengths of the tesselation
+dist_edge = distance_of_edges(tess$dirsgs)
+dist_edge = dist_edge[which(dist_edge > 0)]
+if(min(dist_edge) < 0.01) {
   warning("At least one edge is difficult to see with human eye")
 }
 
@@ -86,13 +88,38 @@ index_previous_init = index_previous_func(tess, index_init, from = from)
 # Rule of the ant #
 ###################
 ## Moving rule
-# "R"  = go right (smallest positive angle),
-# "L"  = go left (highest angle),
-# "B"  = go back (zero angle),
-# "S"  = go straight (angle closest to 0.5),
-# "2R" = go the second to the right, etc. ("3L", "5R", etc.)
-rule = "R L" # default rule: right, then left 
-# rule = "R L B" # right, then left, then go backwards.
+# - "B"  = go backward
+# - "S"  = go starboard
+# - "R"  = go right
+# - "F"  = go forward (undefined for polygons with odd number of edges)
+# - "L"  = go left
+# - "P"  = go port
+# - "2S" = go to second edge from the right (works with "S" and "P")
+rule = "R L" # default rule: right, then left
+# Example with an octogon (original direction marked with an arrow):
+#           F
+#        _______
+#   L  .'       '. R
+#    .'           '.
+#    |             |
+# 2P |             | 2S
+#    |             |
+#    '.     ^     .'
+#   P  '.___|___.' S
+#           |
+#           B
+#
+# Example with a pentagon (original direction marked with an arrow):
+#
+#       .'.
+#   L .'   '. R
+#   .'       '.
+#   \    ^    /
+#  P \   |   / S
+#     \__|__/
+#        |
+#        B
+# Figure inspired from brtmr.de/2015/10/05/hexadecimal-langtons-ant-2.html
 
 ## Number of iterations (stop before if the ant reaches a border)
 max_iterations = 100
@@ -103,6 +130,10 @@ max_iterations = 100
 ## Number of colors before going back to first color
 modulo = length(strsplit(rule, " ")[[1]]) # according to the rule
 # modulo = +Inf # one new color each time the ant walk on the cell
+
+## Palette of colors
+# colfunc = NULL gives colorRampPalette(c("royalblue","red"))
+colfunc = colorRampPalette(c("royalblue","red"))
 
 ## Maximum number of color 
 # (the lower, the easier to see differences between colors)
@@ -138,5 +169,17 @@ plot(vp, border = "#555555")
 perform_walk(tess, vp,
              index_init, index_previous_init,
              rule, max_iterations,
-             modulo, colmax, size_png, when_plot, 
+             modulo, colfunc, colmax, size_png, when_plot, 
              output_shape, not_a_variable)
+
+###############################################################################
+###############################################################################
+###############################################################################
+
+## Classing Langton's ant
+source("set_of_parameters/classic_langton.R")
+
+## Walk with many tesselations using four different rules
+source("set_of_parameters/many_seeds.R")
+
+

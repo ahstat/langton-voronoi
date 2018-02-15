@@ -100,6 +100,7 @@ neighbors_func = function(index, tess) {
   
   # Remove unused columns
   dirsgs = dirsgs[,-which(colnames(dirsgs) %in% c("thirdv1", "thirdv2"))]
+  dirsgs_all = dirsgs
   
   # Only take rows related to index
   dirsgs = dirsgs_restric_index(dirsgs, index)
@@ -117,11 +118,19 @@ neighbors_func = function(index, tess) {
   # Get all neighbors cells (connected with an edge to 'index'),
   # and get position of the mean of each edge
   z_edge = (dirsgs$x1 + dirsgs$x2)/2 + 1i * (dirsgs$y1 + dirsgs$y2)/2
-  index = dirsgs$ind1
-  neighbors = data.frame(z_edge = z_edge, index = index)
+  index_neighbors = dirsgs$ind1
+  neighbors = data.frame(z_edge = z_edge, index = index_neighbors)
   
-  # Check if the index is a cell at the boundary
-  is_bound = is_boundary(dirsgs)
+  # Check if the index is a cell such that at least one neighbor
+  # is at the boundary
+  # (it is not sufficient to check if cell is at the boundary)
+  is_bound = FALSE
+  for(idx in index_neighbors) {
+    dirsgs_n = dirsgs_restric_index(dirsgs_all, idx)
+    dirsgs_n = dirsgs_n[which(distance_of_edges(dirsgs_n) > 0), ]
+    is_bound = is_bound | is_boundary(dirsgs_n)
+    # print(is_bound)
+  }
   
   return(list(neighbors = neighbors, is_bound = is_bound))
 }

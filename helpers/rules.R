@@ -9,11 +9,39 @@
 # - rule: a string containing rule of moving, each move separated by a space
 #
 # Possible moves (described in following functions):
-# - "R"  = go right (smallest positive angle),
-# - "L"  = go right (highest angle),
-# - "B"  = go back (zero angle),
-# - "S"  = go straight (closest angle to 0.5),
-# - "2R" = go to second edge from the right, etc. ("3L", "5R", etc.)
+# - "B"  = go backward (edge related to zero angle),
+# - "S"  = go starboard (edge related to lowest positive angle),
+# - "R"  = go right (median edge minus 1 ; always well-defined)
+# - "F"  = go forward (median edge ; undefined if odd number of polygons),
+# - "L"  = go left (median edge plus 1 ; always well-defined),
+# - "P"  = go port (edge related to the highest angle).
+# - "2S" = go to second edge from the right (works with "S" and "P")
+#
+# Example with an octogon (original direction marked with an arrow):
+#           F
+#        _______
+#   L  .'       '. R
+#    .'           '.
+#    |             |
+# 2P |             | 2S
+#    |             |
+#    '.     ^     .'
+#   P  '.___|___.' S
+#           |
+#           B
+#
+# Example with a pentagon (original direction marked with an arrow):
+#
+#       .'.
+#   L .'   '. R
+#   .'       '.
+#   \    ^    /
+#  P \   |   / S
+#     \__|__/
+#        |
+#        B
+# Figure inspired from brtmr.de/2015/10/05/hexadecimal-langtons-ant-2.html
+
 rule_func = function(previous_moves, rule = "R L") {
   rule_vect = strsplit(rule, " ")[[1]]
   len_previous = (length(previous_moves) %% length(rule_vect)) + 1
@@ -41,9 +69,9 @@ checkEquals(rule_func(c("3R", "5L", "B"), "3R 5L B"), "3R")
 # results. It is difficult to remove ambiguity in those cases, for
 # example: rule_func(c("L"), "R L L") should be "L" or "R"?
 
-################################################################
-# Moves: to the right, to the left, going back, going straight #
-################################################################
+#########################################################################
+# Moves: to the right, to the left, going backward, going forward, etc. #
+#########################################################################
 # Decide to which cell index to go according to the move to apply and
 # knowing the current 'neighbors' data frame.
 #
@@ -52,12 +80,12 @@ checkEquals(rule_func(c("3R", "5L", "B"), "3R 5L B"), "3R")
 # cell c. We expect at least 3 rows in this data frame. It must contain:
 # * neighbors$index: index of neighbor cells of current cell c,
 # * neighbors$angle: angle to edges, relative to direction (c_0 c)
-# - howmany: for going left, move to the 'howmany' edge from the left,
-#            for going right, move to the 'howmany' edge from the right.
+# - howmany: for going port, move to the 'howmany' edge from the left,
+#            for going starboard, move to the 'howmany' edge from the right.
 # Note: arguments are explained in details in angle.R and get_neighbors.R
 # Warning: With howmany > 1, user must ensure there is a sufficient number of
 # edges in the polygon.
-go_back = function(neighbors) {
+go_backward = function(neighbors) {
   # The ant has crossed edge e passing from c_0 to c.
   # The relative angle for this edge e is 0.
   # We want to go back, so we need to cross again this edge e.
@@ -68,24 +96,7 @@ go_back = function(neighbors) {
   return(neighbors[idx,]$index)
 }
 
-go_straight = function(neighbors) {
-  # The relative angle stands in [0, 1[, and going straight corresponds
-  # to an angle of 0.5. We select the cell c' such that relative angle
-  # [relative to (c0 c)] is closest to 0.5.
-  dist_to_half = abs(neighbors$angle - 0.5)
-  idx = which.min(dist_to_half)
-  
-  # Checking if we can going straight unambiguously
-  if(diff(sort(dist_to_half, partial=2)[1:2]) < 10e-9) {
-    out = paste0("Going straight is ambiguous for this cell. ", 
-                 "This occurs for regular polygons with odd edges.")
-    stop(out)
-  }
-  
-  return(neighbors[idx,]$index)
-}
-
-go_right = function(neighbors, howmany = 1) {
+go_starboard = function(neighbors, howmany = 1) {
   # The relative angle stands in [0, 1[ and 0 corresponds to going back.
   # We delete the lowest angle, and sort the remaining angles.
   # The howmany-th index corresponds to the howmany-th move to the right.
@@ -103,7 +114,7 @@ go_right = function(neighbors, howmany = 1) {
   # Checking if we can apply 'howmany'
   if(idx > nrow(neighbors_sort)) {
     out = paste0("Number of polygons for this cell is not enough to apply ",
-                 "go_right(", howmany, ").")
+                 "go_starboard(", howmany, ").")
     stop(out)
   }
   
@@ -111,7 +122,7 @@ go_right = function(neighbors, howmany = 1) {
   return(neighbors_sort[idx,]$index)
 }
 
-go_left = function(neighbors, howmany = 1) {
+go_port = function(neighbors, howmany = 1) {
   # Similar to going right, but we select the howmany-th largest angle.
   neighbors_sort = neighbors[order(neighbors$angle),]
   idx = nrow(neighbors_sort) + 1 - howmany
@@ -119,9 +130,59 @@ go_left = function(neighbors, howmany = 1) {
   # Checking if we can apply 'howmany'
   if(idx < 1) {
     out = paste0("Number of polygons for this cell is not enough to apply ",
-                 "go_left(", howmany, ").")
+                 "go_port(", howmany, ").")
     stop(out)
   }
+  
+  # Output
+  return(neighbors_sort[idx,]$index)
+}
+
+go_right = function(neighbors) {
+  E = nrow(neighbors)
+  neighbors_sort = neighbors[order(neighbors$angle),]
+  
+  idx = ceiling(E/2)
+  
+  # idx = 1 corresponds to angle 0: going back
+  # E = 3 (triangle) --> idx = 2 is to the right,
+  # E = 4 (square) --> idx = 2 is to the right,
+  # E = 5 (pentagon) --> idx = 3 is to the straight-right
+  # etc.
+
+  # Output
+  return(neighbors_sort[idx,]$index)
+}
+
+go_left = function(neighbors) {
+  E = nrow(neighbors)
+  neighbors_sort = neighbors[order(neighbors$angle),]
+  
+  idx = ceiling((E+1)/2) + 1
+  
+  # idx = 1 corresponds to angle 0: going back
+  # E = 3 (triangle) --> idx = 3 is to the left,
+  # E = 4 (square) --> idx = 4 is to the left,
+  # E = 5 (pentagon) --> idx = 4 is to the straight-left
+  # etc.
+  
+  # Output
+  return(neighbors_sort[idx,]$index)
+}
+
+go_forward = function(neighbors) {
+  E = nrow(neighbors)
+  if(E %% 2 == 1) {
+    stop("Cannot go straight, current polygon has odd number of edges.")
+  }
+  neighbors_sort = neighbors[order(neighbors$angle),]
+  
+  idx = ceiling(E/2) + 1
+  
+  # idx = 1 corresponds to angle 0: going back
+  # E = 4 (square) --> idx = 3 is to the right,
+  # E = 6 (hexagon) --> idx = 4 is to the straight-right
+  # etc.
   
   # Output
   return(neighbors_sort[idx,]$index)
@@ -134,37 +195,46 @@ go_left = function(neighbors, howmany = 1) {
 neighbors = data.frame(index = c(17, 14, 19, 11, 18, 10),
                        angle = c(0.7, 0.4, 0.9, 0.1, 0.8, 0))
 # Going back to angle 0, i.e. to index 10
-checkEquals(go_back(neighbors), 10)
-# Going straight, closest angle is 0.4, i.e. to index 14
-checkEquals(go_straight(neighbors), 14)
-# Going right, smallest non zero angle is 0.1, i.e. to index 11
-checkEquals(go_right(neighbors), 11)
+checkEquals(go_backward(neighbors), 10)
+# Going forward, median angle corrsponds to index 17
+checkEquals(go_forward(neighbors), 17)
+# Going starboard, smallest non zero angle is 0.1, i.e. to index 11
+checkEquals(go_starboard(neighbors), 11)
 # Second smallest non zero angle is 0.4, i.e. to index 14
-checkEquals(go_right(neighbors, 2), 14)
-checkEquals(go_right(neighbors, 3), 17)
-checkEquals(go_right(neighbors, 4), 18)
-# Going left, highest angle is 0.9, i.e. to index 19
-checkEquals(go_left(neighbors), 19)
-checkEquals(go_left(neighbors, 2), 18)
-checkEquals(go_left(neighbors, 3), 17)
-checkEquals(go_left(neighbors, 4), 14)
+checkEquals(go_starboard(neighbors, 2), 14)
+checkEquals(go_starboard(neighbors, 3), 17)
+checkEquals(go_starboard(neighbors, 4), 18)
+# Going port, highest angle is 0.9, i.e. to index 19
+checkEquals(go_port(neighbors), 19)
+checkEquals(go_port(neighbors, 2), 18)
+checkEquals(go_port(neighbors, 3), 17)
+checkEquals(go_port(neighbors, 4), 14)
+# Ordered (by angles) idx are: 10 11 14 17 18 19
+# 10 corresponds to going backward, then 11 (starboard), 14 (right),
+# then 17 is going forward,
+# then 18 (left), 19 (port).
+checkEquals(go_right(neighbors), 14)
+checkEquals(go_left(neighbors), 18)
 
 ## An equilateral triangle
 neighbors = data.frame(index = c(13, 16, 10), angle = c(1/3, 2/3, 0))
 # Going back to angle 0, i.e. to index 10
-checkEquals(go_back(neighbors), 10)
-# Going straight is ambiguous for this polygon, throw errow
-checkException(go_straight(neighbors), silent = TRUE)
-checkEquals(go_right(neighbors), 13)
-checkEquals(go_right(neighbors, 2), 16)
-checkEquals(go_right(neighbors, 3), 10)
+checkEquals(go_backward(neighbors), 10)
+# Going forward is not possible for triangles, throws error
+checkException(go_forward(neighbors), silent = TRUE)
+checkEquals(go_starboard(neighbors), 13)
+checkEquals(go_starboard(neighbors, 2), 16)
+checkEquals(go_starboard(neighbors, 3), 10)
 # Going right > n times is not defined for a n polygon, throw error 
-checkException(go_right(neighbors, 4), silent = TRUE)
-checkEquals(go_left(neighbors), 16)
-checkEquals(go_left(neighbors, 2), 13)
-checkEquals(go_left(neighbors, 3), 10)
+checkException(go_starboard(neighbors, 4), silent = TRUE)
+checkEquals(go_port(neighbors), 16)
+checkEquals(go_port(neighbors, 2), 13)
+checkEquals(go_port(neighbors, 3), 10)
 # Going left > n times is not defined for a n polygon, throw error
-checkException(go_left(neighbors, 4), silent = TRUE)
+checkException(go_port(neighbors, 4), silent = TRUE)
+# Going left and right is same as port and starboard here
+checkEquals(go_right(neighbors), 13)
+checkEquals(go_left(neighbors), 16)
 rm(neighbors)
 
 ##############################################################
@@ -180,25 +250,29 @@ rm(neighbors)
 # cell c. We expect at least 3 rows in this data frame. It must contain:
 # * neighbors$index: index of neighbor cells of current cell c,
 # * neighbors$angle: angle to edges, relative to direction (c_0 c)
-# - move: string corresponding to the move, such as "3L".
+# - move: string corresponding to the move, such as "3P".
 rule_apply = function(neighbors, move) {
   # Get the new index to go
   index_go = NA
-  if(move == "R") {
+  if(move == "S") {
+    index_go = go_starboard(neighbors)
+  } else if(move == "P") {
+    index_go = go_port(neighbors)
+  } else if(move == "B") {
+    index_go = go_backward(neighbors)
+  } else if(move == "R") {
     index_go = go_right(neighbors)
   } else if(move == "L") {
     index_go = go_left(neighbors)
-  } else if(move == "B") {
-    index_go = go_back(neighbors)
-  } else if(move == "S") {
-    index_go = go_straight(neighbors)
+  } else if(move == "F") {
+    index_go = go_forward(neighbors)
   } else {
     howmany = as.integer(substr(move, 1, nchar(move)-1))
     direction = substr(move, nchar(move), nchar(move))
-    if(direction == "R") {
-      index_go = go_right(neighbors, howmany)
-    } else if(direction == "L") {
-      index_go = go_left(neighbors, howmany)    
+    if(direction == "S") {
+      index_go = go_starboard(neighbors, howmany)
+    } else if(direction == "P") {
+      index_go = go_port(neighbors, howmany)    
     } else {
       stop("move string is unknown.")
     }
@@ -212,25 +286,27 @@ rule_apply = function(neighbors, move) {
 ## An ordinary polygon
 neighbors = data.frame(index = c(17, 14, 19, 11, 18, 10),
                        angle = c(0.7, 0.4, 0.9, 0.1, 0.8, 0))
-checkEquals(rule_apply(neighbors, "B"), go_back(neighbors))
-checkEquals(rule_apply(neighbors, "S"), go_straight(neighbors))
+checkEquals(rule_apply(neighbors, "B"), go_backward(neighbors))
+checkEquals(rule_apply(neighbors, "F"), go_forward(neighbors))
 checkEquals(rule_apply(neighbors, "R"), go_right(neighbors))
-checkEquals(rule_apply(neighbors, "2R"), go_right(neighbors, 2))
-checkEquals(rule_apply(neighbors, "3R"), go_right(neighbors, 3))
-checkEquals(rule_apply(neighbors, "4R"), go_right(neighbors, 4))
 checkEquals(rule_apply(neighbors, "L"), go_left(neighbors))
-checkEquals(rule_apply(neighbors, "2L"), go_left(neighbors, 2))
-checkEquals(rule_apply(neighbors, "3L"), go_left(neighbors, 3))
-checkEquals(rule_apply(neighbors, "4L"), go_left(neighbors, 4))
+checkEquals(rule_apply(neighbors, "S"), go_starboard(neighbors))
+checkEquals(rule_apply(neighbors, "2S"), go_starboard(neighbors, 2))
+checkEquals(rule_apply(neighbors, "3S"), go_starboard(neighbors, 3))
+checkEquals(rule_apply(neighbors, "4S"), go_starboard(neighbors, 4))
+checkEquals(rule_apply(neighbors, "P"), go_port(neighbors))
+checkEquals(rule_apply(neighbors, "2P"), go_port(neighbors, 2))
+checkEquals(rule_apply(neighbors, "3P"), go_port(neighbors, 3))
+checkEquals(rule_apply(neighbors, "4P"), go_port(neighbors, 4))
 
 ## An equilateral triangle
 neighbors = data.frame(index = c(13, 16, 10), angle = c(1/3, 2/3, 0))
-checkException(rule_apply(neighbors, "S"), silent = TRUE)
-checkException(rule_apply(neighbors, "4R"), silent = TRUE)
-checkException(rule_apply(neighbors, "4L"), silent = TRUE)
+checkException(rule_apply(neighbors, "F"), silent = TRUE)
+checkException(rule_apply(neighbors, "4S"), silent = TRUE)
+checkException(rule_apply(neighbors, "4P"), silent = TRUE)
 
-## Checking 10L and 15L
+## Checking 15R and 10L
 neighbors = data.frame(index = 1:20, angle = seq(0, 1, length.out = 20))
-checkEquals(rule_apply(neighbors, "10L"), go_left(neighbors, 10))
-checkEquals(rule_apply(neighbors, "15R"), go_right(neighbors, 15))
+checkEquals(rule_apply(neighbors, "15S"), go_starboard(neighbors, 15))
+checkEquals(rule_apply(neighbors, "10P"), go_port(neighbors, 10))
 rm(neighbors)
