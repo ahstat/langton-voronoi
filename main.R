@@ -1,17 +1,16 @@
-###################################################################
-# Langton-Voronoi : Langton's ant extended to Voronoi tesselation #
-# 2016/11/01 - 2018/02/15                                         #
-###################################################################
+####################################################################
+# Langton-Voronoi : Langton's ant extended to Voronoi tessellation #
+# 2016/11/01 - 2018/02/15                                          #
+####################################################################
 # Classic Langton's ant is described in en.wikipedia.org/wiki/Langton's_ant
 #
-# In this code, novelty is to extend this process to any tesselation obtained
+# In this code, novelty is to extend this process to any tessellation obtained
 # from Voronoi points.
 #
 # Extension to multiple colors is done (we can select standard "R L" rule or 
 # any other self-defined rule).
 #
-# Extension to multiple states (turmite), multiple ants, or higher dimensions
-# is *not* done.
+# Extensions to multiple ants or higher dimensions are *not* done.
 rm(list=ls())
 library(deldir) # for deldir and plot.deldir
 library(sp) # for voronoipolygons
@@ -41,9 +40,9 @@ source("helpers/perform_walk.R")
 ################
 ################
 
-###############
-# Tesselation #
-###############
+################
+# Tessellation #
+################
 # We draw N points uniformely in [-0.5,0.5]x[-0.5,0.5]
 # Then, we translate and copy those N points in the four directions by
 # step of 1 up to m to finally have N*(2*m+1)^2 points in 
@@ -59,7 +58,7 @@ rm(m, z)
 # [-m_left-0.5,m_right+0.5]x[-m_down-0.5,m_up+0.5]:
 # m = c(-2, 3, -1, 1) # m_left / m_right / m_down / m_up
 
-## Checking the edge lengths of the tesselation
+## Checking the edge lengths of the tessellation
 dist_edge = distance_of_edges(tess$dirsgs)
 dist_edge = dist_edge[which(dist_edge > 0)]
 if(min(dist_edge) < 0.01) {
@@ -80,7 +79,7 @@ index_init = index_init_func(tess, n = n)
 from = "bottom_to_up"
 # We can also select "up_to_bottom", "left_to_right", "right_to_left"
 # We can also select any neighbor cell of the initial cell (indexed by 1:E),
-# e=1, e=2, etc. In this case, E depends of the considered tesselation:
+# e=1, e=2, etc. In this case, E depends of the considered tessellation:
 # E = nrow(neighbors_func(index_init, tess)$neighbors)
 index_previous_init = index_previous_func(tess, index_init, from = from)
 
@@ -179,7 +178,5 @@ perform_walk(tess, vp,
 ## Classing Langton's ant
 source("set_of_parameters/classic_langton.R")
 
-## Walk with many tesselations using four different rules
+## Walk with many tessellations using four different rules
 source("set_of_parameters/many_seeds.R")
-
-
