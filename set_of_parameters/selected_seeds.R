@@ -15,7 +15,7 @@ adding = function(df, seeds, N, rule) {
 # Many tesselations with translated shapes #
 ############################################
 # N points are selected randomly in [-0.5, 0.5]^2 and are copied in all 
-# directions, leading to (m+1)*(m+1)*N points in  [m-0.5, m+0.5]^2
+# directions, leading to (2*m+1)*(2*m+1)*N points in  [m-0.5, m+0.5]^2
 m = 10
 
 df = data.frame(seed = 1, N = 1, rule = 1)
