@@ -11,7 +11,7 @@ Many parameters can be adjusted directly in the "main.R" file. There are divided
 - Tessellation: a deldir object. A simple method to build it is to draw N points in [-0.5,0.5]×[-0.5,0.5] according to a seed; Then to copy those N points in the four directions to create the desired tiling.
 - Initialization of the ant: selecting in which cell is the ant at the initial step (t=1) and at the previous step (t=0). By default: The cell c which is closest to (0,0) is selected at the initial step; The cell at the bottom of c is selected for the previous step.
 - Rule of the ant: We select the rule as described in details in the blog post, such as "R L" or "S P". We also define the maximum number of iterations of the ant.
-- Plotting and outputs: We define how the cell are colored; What is the size of the output; Whether we need to output a plot at each iteration or only for the last one; In which file the output is saved. 
+- Plotting and outputs: We define how the cells are colored; What is the size of the plots; Whether we need to output a plot at each iteration or only at the final one; In which file is saved the plot. 
 
 **Launching the ant**
 
